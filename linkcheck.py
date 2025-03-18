@@ -35,6 +35,7 @@ from rich import print as rprint
 import platform
 import pathlib
 import sys
+import stat
 
 # Initialize colorama for Windows support
 init()
@@ -44,13 +45,27 @@ HOME_DIR = str(pathlib.Path.home())
 APP_NAME = "LinkGuardian"
 APP_DIR = os.path.join(HOME_DIR, f".{APP_NAME.lower()}")
 
+def ensure_directory_permissions(directory: str):
+    """Ensure directory has correct permissions across platforms."""
+    try:
+        if platform.system() != 'Windows':
+            # Set read/write permissions for user on Unix-like systems
+            os.chmod(directory, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+    except Exception as e:
+        logger.warning(f"Could not set directory permissions: {e}")
+
 # Configure logging with more detail
 def setup_logging():
     """Setup logging with platform-specific paths."""
     log_dir = os.path.join(APP_DIR, "logs")
     os.makedirs(log_dir, exist_ok=True)
+    ensure_directory_permissions(log_dir)
     
     log_file = os.path.join(log_dir, "linkchecker.log")
+    
+    # Ensure log file has correct permissions
+    if os.path.exists(log_file):
+        ensure_directory_permissions(log_file)
     
     logging.basicConfig(
         level=logging.INFO,
@@ -86,13 +101,25 @@ def get_cache_dir() -> str:
     """Get the cache directory path based on the operating system."""
     cache_dir = os.path.join(APP_DIR, "cache")
     os.makedirs(cache_dir, exist_ok=True)
+    ensure_directory_permissions(cache_dir)
     return cache_dir
 
 def get_output_dir() -> str:
     """Get the output directory path based on the operating system."""
     output_dir = os.path.join(APP_DIR, "output")
     os.makedirs(output_dir, exist_ok=True)
+    ensure_directory_permissions(output_dir)
     return output_dir
+
+def get_platform_user_agent() -> str:
+    """Get platform-specific user agent string."""
+    system = platform.system()
+    if system == 'Windows':
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    elif system == 'Darwin':  # macOS
+        return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    else:  # Linux and others
+        return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
 class LinkType(Enum):
     INTERNAL = "internal"
